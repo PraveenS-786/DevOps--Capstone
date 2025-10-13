@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Snake & Ladder Game - 2 Player</title>
+<style>
+  body {
+    font-family: 'Poppins', sans-serif;
+    text-align: center;
+    background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  h1 {
+    margin: 10px 0;
+    color: #333;
+  }
+
+  #gameArea {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    margin-top: 10px;
+  }
+
+  #board {
+    display: grid;
+    grid-template-columns: repeat(10, 40px);
+    grid-template-rows: repeat(10, 40px);
+    border: 4px solid #333;
+    width: 400px;
+    height: 400px;
+    background-color: #fefefe;
+    position: relative;
+    background-image: 
+      url('https://i.imgur.com/t4A9h7C.png'), /* ladders */
+      url('https://i.imgur.com/FCh7WZq.png'); /* snakes */
+    background-size: contain, contain;
+    background-repeat: no-repeat, no-repeat;
+    background-position: center;
+  }
+
+  .cell {
+    border: 1px solid #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    position: relative;
+  }
+
+  /* Highlight ladder and snake points */
+  .ladder {
+    background-color: #d4fcd4; /* light green */
+    box-shadow: inset 0 0 5px #2e7d32;
+  }
+
+  .snake {
+    background-color: #ffd6d6; /* light red */
+    box-shadow: inset 0 0 5px #c62828;
+  }
+
+  .player {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    position: absolute;
+  }
+
+  .p1 { background-color: red; left: 3px; bottom: 3px; }
+  .p2 { background-color: blue; right: 3px; top: 3px; }
+
+  #controls {
+    margin-top: 10px;
+  }
+
+  #dice {
+    font-size: 18px;
+    margin: 5px 0;
+  }
+
+  button {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  button:hover { background: #45a049; }
+
+  #scoreboard {
+    border: 2px solid #333;
+    border-radius: 10px;
+    padding: 10px;
+    background: #fff;
+    height: 150px;
+    width: 180px;
+    text-align: left;
+  }
+
+  #winner {
+    margin-top: 10px;
+    font-weight: bold;
+    font-size: 20px;
+  }
+</style>
+</head>
+<body>
+  <h1>🐍 Snake & Ladder 🪜 — 2 Player Game</h1>
+
+  <div id="gameArea">
+    <div id="board"></div>
+    <div id="scoreboard">
+      <h3>🏆 Scoreboard</h3>
+      <p>🔴 Player 1: <span id="p1pos">1</span></p>
+      <p>🔵 Player 2: <span id="p2pos">1</span></p>
+      <p>🎲 Turn: <span id="turn">Player 1</span></p>
+      <div id="winner"></div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div id="dice">🎲 Roll to Start</div>
+    <button id="rollBtn">Roll Dice</button>
+    <button id="restartBtn">🔁 Restart</button>
+  </div>
+
+<script>
+  const board = document.getElementById("board");
+  const diceDisplay = document.getElementById("dice");
+  const rollBtn = document.getElementById("rollBtn");
+  const restartBtn = document.getElementById("restartBtn");
+  const turnDisplay = document.getElementById("turn");
+  const winnerDisplay = document.getElementById("winner");
+  const p1posText = document.getElementById("p1pos");
+  const p2posText = document.getElementById("p2pos");
+
+  // Snakes & Ladders positions
+  const snakes = { 98: 78, 95: 75, 93: 70, 87: 24, 64: 60, 62: 19, 54: 34, 17: 7 };
+  const ladders = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 51: 67, 72: 91, 80: 99 };
+
+  // Create the board 1–100
+  for (let i = 100; i >= 1; i--) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.id = "cell-" + i;
+    cell.textContent = i;
+
+    // Highlight snake and ladder cells
+    if (Object.keys(ladders).includes(i.toString())) {
+      cell.classList.add("ladder");
+      cell.title = `🪜 Ladder from ${i} → ${ladders[i]}`;
+    } else if (Object.keys(snakes).includes(i.toString())) {
+      cell.classList.add("snake");
+      cell.title = `🐍 Snake from ${i} → ${snakes[i]}`;
+    }
+
+    board.appendChild(cell);
+  }
+
+  // Players
+  let players = [
+    { id: "p1", pos: 1, color: "red" },
+    { id: "p2", pos: 1, color: "blue" },
+  ];
+  let currentPlayer = 0;
+
+  const p1Token = document.createElement("div");
+  const p2Token = document.createElement("div");
+  p1Token.className = "player p1";
+  p2Token.className = "player p2";
+  document.getElementById("cell-1").appendChild(p1Token);
+  document.getElementById("cell-1").appendChild(p2Token);
+
+  rollBtn.addEventListener("click", () => {
+    const dice = Math.floor(Math.random() * 6) + 1;
+    diceDisplay.textContent = `🎲 ${players[currentPlayer].id.toUpperCase()} rolled ${dice}`;
+
+    let nextPos = players[currentPlayer].pos + dice;
+
+    if (nextPos > 100) {
+      diceDisplay.textContent = "🚫 Need exact number to reach 100!";
+      switchTurn();
+      return;
+    }
+
+    // Check ladders/snakes
+    if (ladders[nextPos]) {
+      diceDisplay.textContent += ` 🪜 Ladder up to ${ladders[nextPos]}!`;
+      nextPos = ladders[nextPos];
+    } else if (snakes[nextPos]) {
+      diceDisplay.textContent += ` 🐍 Snake down to ${snakes[nextPos]}!`;
+      nextPos = snakes[nextPos];
+    }
+
+    // Move player
+    players[currentPlayer].pos = nextPos;
+    updateTokens();
+
+    // Update scoreboard
+    p1posText.textContent = players[0].pos;
+    p2posText.textContent = players[1].pos;
+
+    // Check for win
+    if (nextPos === 100) {
+      winnerDisplay.textContent = `${players[currentPlayer].id.toUpperCase()} Wins! 🎉`;
+      rollBtn.disabled = true;
+      return;
+    }
+
+    switchTurn();
+  });
+
+  function updateTokens() {
+    document.querySelectorAll(".player").forEach(p => p.remove());
+    document.getElementById("cell-" + players[0].pos).appendChild(p1Token);
+    document.getElementById("cell-" + players[1].pos).appendChild(p2Token);
+  }
+
+  function switchTurn() {
+    currentPlayer = currentPlayer === 0 ? 1 : 0;
+    turnDisplay.textContent = currentPlayer === 0 ? "Player 1" : "Player 2";
+  }
+
+  restartBtn.addEventListener("click", () => {
+    players[0].pos = 1;
+    players[1].pos = 1;
+    currentPlayer = 0;
+    rollBtn.disabled = false;
+    diceDisplay.textContent = "🎲 Roll to Start";
+    winnerDisplay.textContent = "";
+    updateTokens();
+    p1posText.textContent = 1;
+    p2posText.textContent = 1;
+    turnDisplay.textContent = "Player 1";
+  });
+</script>
+</body>
+</html>
