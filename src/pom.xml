@@ -29,7 +29,7 @@
                     <failOnMissingWebXml>false</failOnMissingWebXml>
                     <webResources>
                         <resource>
-                            <directory>src/main/webapp</directory>
+                            <directory></directory>
                             <includes>
                                 <include>**/*</include>
                             </includes>
