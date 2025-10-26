@@ -10,26 +10,22 @@
     <packaging>war</packaging>
 
     <name>Static Web App</name>
-    <description>A simple static web app with index.html</description>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
+    <description>Static web app with index.html in project root</description>
 
     <build>
         <finalName>my-webapp</finalName>
-
         <plugins>
-            <!-- Plugin to package HTML, CSS, JS into a WAR file -->
+            <!-- Package HTML from project root -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
                 <version>3.3.2</version>
                 <configuration>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
+                    <!-- Tell Maven where your index.html is -->
                     <webResources>
                         <resource>
-                            <directory>${basedir}/../</directory>
+                            <directory>${basedir}/../</directory> <!-- one level up from pom.xml -->
                             <includes>
                                 <include>index.html</include>
                             </includes>
@@ -46,5 +42,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
