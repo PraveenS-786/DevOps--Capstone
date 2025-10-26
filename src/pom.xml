@@ -14,25 +14,16 @@
 
     <build>
         <finalName>my-webapp</finalName>
-        <plugins>
-            <!-- Package HTML from project root -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-war-plugin</artifactId>
-                <version>3.3.2</version>
-                <configuration>
-                    <failOnMissingWebXml>false</failOnMissingWebXml>
-                    <!-- Tell Maven where your index.html is -->
-                    <webResources>
-                        <resource>
-                            <directory>${basedir}/../</directory> <!-- one level up from pom.xml -->
-                            <includes>
-                                <include>index.html</include>
-                            </includes>
-                        </resource>
-                    </webResources>
-                </configuration>
-            </plugin>
+    <plugins>
+        <plugin>
+            <artifactId>maven-war-plugin</artifactId>
+            <version>3.3.2</version>
+            <configuration>
+                <failOnMissingWebXml>false</failOnMissingWebXml>
+                <warSourceDirectory>${basedir}/../</warSourceDirectory>
+            </configuration>
+        </plugin>
+    </plugins>
 
             <!-- Optional: SonarQube plugin -->
             <plugin>
