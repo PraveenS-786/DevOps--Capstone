@@ -14,18 +14,18 @@
 
     <build>
         <finalName>my-webapp</finalName>
-    <plugins>
-        <plugin>
-            <artifactId>maven-war-plugin</artifactId>
-            <version>3.3.2</version>
-            <configuration>
-                <failOnMissingWebXml>false</failOnMissingWebXml>
-                <warSourceDirectory>${basedir}/../</warSourceDirectory>
-            </configuration>
-        </plugin>
-    </plugins>
+        <plugins>
+            <!-- WAR Plugin -->
+            <plugin>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>3.3.2</version>
+                <configuration>
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
+                    <warSourceDirectory>${basedir}/../</warSourceDirectory>
+                </configuration>
+            </plugin>
 
-            <!-- Optional: SonarQube plugin -->
+            <!-- SonarQube Plugin (optional) -->
             <plugin>
                 <groupId>org.sonarsource.scanner.maven</groupId>
                 <artifactId>sonar-maven-plugin</artifactId>
