@@ -29,9 +29,9 @@
                     <failOnMissingWebXml>false</failOnMissingWebXml>
                     <webResources>
                         <resource>
-                            <directory></directory>
+                            <directory>${basedir}/../</directory>
                             <includes>
-                                <include>**/*</include>
+                                <include>index.html</include>
                             </includes>
                         </resource>
                     </webResources>
