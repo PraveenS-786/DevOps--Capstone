@@ -3,9 +3,12 @@ pipeline {
 
     environment {
         AWS_REGION = 'ap-south-1'
+        SONARQUBE_ENV = 'MySonarQube'   // The name of your SonarQube server configured in Jenkins
+        PROJECT_KEY = 'devops-capstone' // Unique project name for SonarQube
     }
 
     stages {
+
         stage('Checkout Terraform Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/PraveenS-786/DevOps--Capstone.git'
@@ -23,6 +26,45 @@ pipeline {
                     terraform init
                     terraform apply -auto-approve
                     '''
+                }
+            }
+        }
+
+        stage('Build & Test Code') {
+            steps {
+                bat '''
+                echo Running code build and unit tests...
+                cd app
+                mvn clean verify
+                '''
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    bat '''
+                    cd app
+                    echo Starting SonarQube analysis...
+                    '''
+                    withSonarQubeEnv("${SONARQUBE_ENV}") {
+                        bat '''
+                        cd app
+                        mvn sonar:sonar ^
+                          -Dsonar.projectKey=%PROJECT_KEY% ^
+                          -Dsonar.host.url=http://localhost:9000 ^
+                          -Dsonar.login=admin ^
+                          -Dsonar.password=admin
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Wait for SonarQube Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: false
                 }
             }
         }
@@ -69,8 +111,7 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline completed.'
+            echo '✅ Pipeline completed.'
         }
     }
 }
-
