@@ -2,9 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
-        TF_VAR_region         = 'ap-south-1'
+        AWS_REGION = 'ap-south-1'
     }
 
     stages {
@@ -16,11 +14,16 @@ pipeline {
 
         stage('Terraform Init & Apply') {
             steps {
-                sh '''
-                cd terraform
-                terraform init
-                terraform apply -auto-approve
-                '''
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    sh '''
+                    cd terraform
+                    terraform init
+                    terraform apply -auto-approve
+                    '''
+                }
             }
         }
 
@@ -48,11 +51,22 @@ pipeline {
                 expression { return params.DESTROY_INSTANCE == true }
             }
             steps {
-                sh '''
-                cd terraform
-                terraform destroy -auto-approve
-                '''
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    sh '''
+                    cd terraform
+                    terraform destroy -auto-approve
+                    '''
+                }
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline completed.'
         }
     }
 }
