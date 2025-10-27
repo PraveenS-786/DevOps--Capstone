@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         AWS_REGION = 'ap-south-1'
-        SONARQUBE_ENV = 'MySonarQube'
-        PROJECT_KEY = 'devops-capstone'
+        SONARQUBE_ENV = 'MySonarQube'   // Name of your SonarQube server config in Jenkins
+        PROJECT_KEY = 'devops-capstone' // Unique Sonar project key
     }
 
     stages {
@@ -32,24 +32,33 @@ pipeline {
         stage('Build & Test Code') {
             steps {
                 bat '''
-                echo Running code build and unit tests...
+                echo Running code build and tests...
                 mvn clean verify
                 '''
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('SonarQube Analysis (on EC2)') {
             steps {
                 script {
+                    // Fetch EC2 public IP from Terraform output
+                    def ec2_ip = bat(
+                        script: 'cd terraform && terraform output -raw ec2_public_ip',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "SonarQube Server: http://${ec2_ip}:9000"
+
+                    // Run SonarQube analysis against EC2 SonarQube server
                     withSonarQubeEnv("${SONARQUBE_ENV}") {
-                        bat '''
-                        echo Starting SonarQube analysis...
+                        bat """
+                        echo Running SonarQube analysis on http://${ec2_ip}:9000 ...
                         mvn sonar:sonar ^
                           -Dsonar.projectKey=%PROJECT_KEY% ^
-                          -Dsonar.host.url=http://localhost:9000 ^
+                          -Dsonar.host.url=http://${ec2_ip}:9000 ^
                           -Dsonar.login=admin ^
                           -Dsonar.password=admin
-                        '''
+                        """
                     }
                 }
             }
@@ -69,7 +78,7 @@ pipeline {
                 cd terraform
                 for /f "usebackq delims=" %%i in (`terraform output -raw ec2_public_ip`) do set EC2_IP=%%i
                 echo =============================================
-                echo ✅ SonarQube is available at: http://%EC2_IP%:9000
+                echo ✅ SonarQube Dashboard: http://%EC2_IP%:9000
                 echo =============================================
                 '''
             }
@@ -95,7 +104,7 @@ pipeline {
 
     post {
         always {
-            echo '✅ Pipeline completed.'
+            echo '✅ Pipeline completed successfully.'
         }
     }
 }
