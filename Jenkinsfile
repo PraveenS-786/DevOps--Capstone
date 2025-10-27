@@ -32,8 +32,7 @@ pipeline {
                 bat '''
                 cd terraform
                 terraform output -raw private_key_pem > ec2_key.pem
-                REM Windows equivalent of chmod 400
-                icacls ec2_key.pem /inheritance:r /grant:r "%USERNAME%:R"
+                echo "Skipping chmod (not needed on Windows)"
                 '''
             }
         }
@@ -74,3 +73,4 @@ pipeline {
         }
     }
 }
+
