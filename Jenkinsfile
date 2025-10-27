@@ -18,7 +18,7 @@ pipeline {
                     $class: 'AmazonWebServicesCredentialsBinding',
                     credentialsId: 'praveen-iam'
                 ]]) {
-                    sh '''
+                    bat '''
                     cd terraform
                     terraform init
                     terraform apply -auto-approve
@@ -29,7 +29,7 @@ pipeline {
 
         stage('Save Terraform Private Key') {
             steps {
-                sh '''
+                bat '''
                 cd terraform
                 terraform output -raw private_key_pem > ec2_key.pem
                 chmod 400 ec2_key.pem
@@ -39,7 +39,7 @@ pipeline {
 
         stage('Show SonarQube URL') {
             steps {
-                sh '''
+                bat '''
                 EC2_IP=$(terraform -chdir=terraform output -raw ec2_public_ip)
                 echo "✅ SonarQube is available at: http://$EC2_IP:9000"
                 '''
@@ -55,7 +55,7 @@ pipeline {
                     $class: 'AmazonWebServicesCredentialsBinding',
                     credentialsId: 'praveen-iam'
                 ]]) {
-                    sh '''
+                    bat '''
                     cd terraform
                     terraform destroy -auto-approve
                     '''
@@ -70,5 +70,6 @@ pipeline {
         }
     }
 }
+
 
 
