@@ -3,12 +3,11 @@ pipeline {
 
     environment {
         AWS_REGION = 'ap-south-1'
-        SONARQUBE_ENV = 'MySonarQube'   // The name of your SonarQube server configured in Jenkins
-        PROJECT_KEY = 'devops-capstone' // Unique project name for SonarQube
+        SONARQUBE_ENV = 'MySonarQube'
+        PROJECT_KEY = 'devops-capstone'
     }
 
     stages {
-
         stage('Checkout Terraform Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/PraveenS-786/DevOps--Capstone.git'
@@ -34,7 +33,6 @@ pipeline {
             steps {
                 bat '''
                 echo Running code build and unit tests...
-                cd app
                 mvn clean verify
                 '''
             }
@@ -43,13 +41,9 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    bat '''
-                    cd app
-                    echo Starting SonarQube analysis...
-                    '''
                     withSonarQubeEnv("${SONARQUBE_ENV}") {
                         bat '''
-                        cd app
+                        echo Starting SonarQube analysis...
                         mvn sonar:sonar ^
                           -Dsonar.projectKey=%PROJECT_KEY% ^
                           -Dsonar.host.url=http://localhost:9000 ^
@@ -66,16 +60,6 @@ pipeline {
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: false
                 }
-            }
-        }
-
-        stage('Save Terraform Private Key') {
-            steps {
-                bat '''
-                cd terraform
-                terraform output -raw private_key_pem > ec2_key.pem
-                echo "Skipping chmod (not needed on Windows)"
-                '''
             }
         }
 
