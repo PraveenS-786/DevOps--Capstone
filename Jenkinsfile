@@ -14,9 +14,9 @@ pipeline {
 
         stage('Terraform Init & Apply') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'praveen-iam'
+                withCredentials([[ 
+                    $class: 'AmazonWebServicesCredentialsBinding', 
+                    credentialsId: 'praveen-iam' 
                 ]]) {
                     bat '''
                     cd terraform
@@ -29,19 +29,23 @@ pipeline {
 
         stage('Save Terraform Private Key') {
             steps {
-                sh '''
+                bat '''
                 cd terraform
                 terraform output -raw private_key_pem > ec2_key.pem
-                chmod 400 ec2_key.pem
+                REM Windows equivalent of chmod 400
+                icacls ec2_key.pem /inheritance:r /grant:r "%USERNAME%:R"
                 '''
             }
         }
 
         stage('Show SonarQube URL') {
             steps {
-                sh '''
-                EC2_IP=$(terraform -chdir=terraform output -raw ec2_public_ip)
-                echo "✅ SonarQube is available at: http://$EC2_IP:9000"
+                bat '''
+                cd terraform
+                for /f "usebackq delims=" %%i in (`terraform output -raw ec2_public_ip`) do set EC2_IP=%%i
+                echo =============================================
+                echo ✅ SonarQube is available at: http://%EC2_IP%:9000
+                echo =============================================
                 '''
             }
         }
@@ -51,9 +55,9 @@ pipeline {
                 expression { return params.DESTROY_INSTANCE == true }
             }
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'praveen-iam'
+                withCredentials([[ 
+                    $class: 'AmazonWebServicesCredentialsBinding', 
+                    credentialsId: 'praveen-iam' 
                 ]]) {
                     bat '''
                     cd terraform
@@ -70,7 +74,3 @@ pipeline {
         }
     }
 }
-
-
-
-
