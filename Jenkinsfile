@@ -8,7 +8,7 @@ pipeline {
     stages {
         stage('Checkout Terraform Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/your-repo/terraform-sonarqube.git'
+                git branch: 'main', url: 'https://github.com/PraveenS-786/DevOps--Capstone.git'
             }
         }
 
@@ -16,7 +16,7 @@ pipeline {
             steps {
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-credentials'
+                    credentialsId: 'praveen-iam'
                 ]]) {
                     sh '''
                     cd terraform
@@ -70,3 +70,4 @@ pipeline {
         }
     }
 }
+
