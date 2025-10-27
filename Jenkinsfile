@@ -29,7 +29,7 @@ pipeline {
 
         stage('Save Terraform Private Key') {
             steps {
-                bat '''
+                sh '''
                 cd terraform
                 terraform output -raw private_key_pem > ec2_key.pem
                 chmod 400 ec2_key.pem
@@ -39,7 +39,7 @@ pipeline {
 
         stage('Show SonarQube URL') {
             steps {
-                bat '''
+                sh '''
                 EC2_IP=$(terraform -chdir=terraform output -raw ec2_public_ip)
                 echo "✅ SonarQube is available at: http://$EC2_IP:9000"
                 '''
@@ -70,6 +70,7 @@ pipeline {
         }
     }
 }
+
 
 
 
