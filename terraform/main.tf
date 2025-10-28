@@ -79,7 +79,7 @@ resource "aws_instance" "sonarqube_ec2" {
   ##########################################
 provisioner "remote-exec" {
   inline = [
-    "set -e",
+    "set -ex",
     "sudo apt-get update -y",
     "sudo apt-get install -y unzip wget curl software-properties-common",
     "sudo add-apt-repository universe -y || true",
@@ -96,7 +96,7 @@ provisioner "remote-exec" {
     "sudo bash -c \"cat > /etc/systemd/system/sonarqube.service <<'EOF'\n[Unit]\nDescription=SonarQube service\nAfter=network.target\n\n[Service]\nType=forking\nExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start\nExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop\nUser=sonar\nGroup=sonar\nRestart=on-failure\nLimitNOFILE=65536\n\n[Install]\nWantedBy=multi-user.target\nEOF\"",
     "sudo systemctl daemon-reload",
     "sudo systemctl enable sonarqube",
-    "sudo systemctl start sonarqube || sudo journalctl -xeu sonarqube.service"
+    "sudo systemctl start sonarqube || (sudo journalctl -xeu sonarqube.service && false)"
   ]
 }
 
