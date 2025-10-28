@@ -77,44 +77,38 @@ resource "aws_instance" "sonarqube_ec2" {
   ##########################################
   # REMOTE EXEC PROVISIONER
   ##########################################
-  provisioner "remote-exec" {
-    inline = [
-      "sudo apt-get clean",
-      "sudo apt-get update -y",
-      "sudo apt-get install -y software-properties-common wget unzip curl",
-      "sudo add-apt-repository universe -y",
-      "sudo apt-get update -y",
-      "sudo apt-get install -y openjdk-17-jdk",
-      "wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.6.0.92116.zip",
-      "unzip sonarqube-*.zip",
-      "sudo mv sonarqube-* /opt/sonarqube",
-      "sudo useradd -r -s /bin/false sonar || true",
-      "sudo chown -R sonar:sonar /opt/sonarqube",
-      <<-EOF
-        sudo bash -c 'cat <<SERVICE > /etc/systemd/system/sonarqube.service
-[Unit]
-Description=SonarQube service
-After=network.target
+provisioner "remote-exec" {
+  inline = [
+    # --- System Prep ---
+    "sudo apt-get clean",
+    "sudo apt-get update -y",
+    "sudo apt-get install -y software-properties-common wget unzip curl",
+    "sudo add-apt-repository universe -y",
+    "sudo apt-get update -y",
+    "sudo apt-get install -y openjdk-17-jdk",
 
-[Service]
-Type=forking
-ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
-ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
-User=sonar
-Group=sonar
-Restart=on-failure
-LimitNOFILE=65536
+    # --- SonarQube Setup ---
+    "wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.6.0.92116.zip",
+    "unzip sonarqube-10.6.0.92116.zip",
+    "sudo mkdir -p /opt/sonarqube",                # ✅ FIX 1: Create destination directory
+    "sudo mv sonarqube-10.6.0.92116/* /opt/sonarqube/",  # ✅ FIX 2: Move contents, not folder
+    "sudo useradd -r -s /bin/false sonar || true",
+    "sudo chown -R sonar:sonar /opt/sonarqube",
 
-[Install]
-WantedBy=multi-user.target
-SERVICE'
-      EOF
-    ,
-      "sudo systemctl daemon-reload",
-      "sudo systemctl enable sonarqube",
-      "sudo systemctl start sonarqube"
-    ]
-  }
+    # --- JVM Memory Optimization (Free Tier Friendly) ---
+    "echo 'sonar.search.javaOpts=-Xms128m -Xmx256m' | sudo tee -a /opt/sonarqube/conf/sonar.properties",
+    "echo 'sonar.web.javaOpts=-Xms128m -Xmx256m' | sudo tee -a /opt/sonarqube/conf/sonar.properties",
+
+    # --- Create Systemd Service ---
+    "sudo bash -c 'cat <<EOF > /etc/systemd/system/sonarqube.service\n[Unit]\nDescription=SonarQube service\nAfter=network.target\n\n[Service]\nType=forking\nExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start\nExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop\nUser=sonar\nGroup=sonar\nRestart=on-failure\nLimitNOFILE=65536\n\n[Install]\nWantedBy=multi-user.target\nEOF'",
+
+    # --- Start Service ---
+    "sudo systemctl daemon-reload",
+    "sudo systemctl enable sonarqube",
+    "sudo systemctl start sonarqube"
+  ]
+}
+
 
   ##########################################
   # OPTIONAL: Print IP After Creation
