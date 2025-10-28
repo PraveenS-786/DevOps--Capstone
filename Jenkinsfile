@@ -1,13 +1,16 @@
 pipeline {
     agent any
 
-    environment {
+       environment {
         AWS_REGION     = 'ap-south-1'
         SONARQUBE_ENV  = 'MySonarQube'
         PROJECT_KEY    = 'devops-capstone'
         SONAR_USER     = 'admin'
         SONAR_PASS     = 'admin'
+        DOCKERHUB_USERNAME = 'praveen197'   // 🔁 Replace
+        APP_NAME       = 'devops-capstone-app'
     }
+
 
     parameters {
         booleanParam(name: 'DESTROY_INSTANCE', defaultValue: false, description: 'Destroy EC2 after analysis')
@@ -130,6 +133,56 @@ pipeline {
         }
     }
 }
+stage('Build Docker Image') {
+    steps {
+        script {
+            echo "🐳 Building Docker image..."
+            bat """
+            docker build -t ${DOCKERHUB_USERNAME}/${APP_NAME}:${BUILD_NUMBER} .
+            """
+        }
+    }
+}
+
+stage('Push Docker Image to DockerHub') {
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+            script {
+                echo "📦 Pushing Docker image to Docker Hub..."
+                bat """
+                docker login -u %DOCKER_USER% -p %DOCKER_PASS%
+                docker push ${DOCKERHUB_USERNAME}/${APP_NAME}:${BUILD_NUMBER}
+                docker logout
+                """
+            }
+        }
+    }
+}
+stage('Deploy App on EC2') {
+    steps {
+        script {
+            def ec2_ip = readFile('terraform/ec2_ip.txt').trim()
+            echo "🚀 Deploying container on EC2 (${ec2_ip})..."
+
+            // Connect via SSH using the Terraform-generated private key
+            bat """
+            pscp -i terraform/jenkins-sonarqube-key.pem terraform/jenkins-sonarqube-key.pem ubuntu@${ec2_ip}:/home/ubuntu/
+            """
+
+            // ✅ Use SSH to run Docker commands remotely
+            bat """
+            plink -i terraform/jenkins-sonarqube-key.pem ubuntu@${ec2_ip} ^
+              "sudo apt-get update -y && sudo apt-get install -y docker.io && \
+               sudo systemctl start docker && sudo systemctl enable docker && \
+               sudo docker stop ${APP_NAME} || true && sudo docker rm ${APP_NAME} || true && \
+               sudo docker pull ${DOCKERHUB_USERNAME}/${APP_NAME}:${BUILD_NUMBER} && \
+               sudo docker run -d -p 8080:8080 --name ${APP_NAME} ${DOCKERHUB_USERNAME}/${APP_NAME}:${BUILD_NUMBER}"
+            """
+
+            echo "✅ Application deployed and running on http://${ec2_ip}:8080"
+        }
+    }
+}
 
 
 
@@ -187,6 +240,7 @@ pipeline {
         }
     }
 }
+
 
 
 
