@@ -133,13 +133,14 @@ pipeline {
         }
     }
 }
-        stage('Build App Jar') {
+      stage('Build WAR File') {
     steps {
         bat """
         mvn clean package -DskipTests
         """
     }
 }
+
 stage('Build Docker Image') {
     steps {
         script {
@@ -150,6 +151,7 @@ stage('Build Docker Image') {
         }
     }
 }
+
 
 stage('Push Docker Image to DockerHub') {
     steps {
@@ -247,6 +249,7 @@ stage('Deploy App on EC2') {
         }
     }
 }
+
 
 
 
