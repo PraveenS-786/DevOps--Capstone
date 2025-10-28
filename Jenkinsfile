@@ -2,9 +2,11 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'ap-south-1'
-        SONARQUBE_ENV = 'MySonarQube'   // Name of your SonarQube server config in Jenkins
-        PROJECT_KEY = 'devops-capstone' // Unique Sonar project key
+        AWS_REGION     = 'ap-south-1'
+        SONARQUBE_ENV  = 'MySonarQube'   // Jenkins SonarQube server config name
+        PROJECT_KEY    = 'devops-capstone'
+        SONAR_USER     = 'admin'         // SonarQube admin user
+        SONAR_PASS     = 'admin'         // default admin password (change after first login)
     }
 
     stages {
@@ -41,38 +43,61 @@ pipeline {
         stage('SonarQube Analysis (on EC2)') {
             steps {
                 script {
-                    // Fetch EC2 public IP from Terraform output
+                    // Get EC2 public IP from Terraform output
                     def ec2_ip = bat(
                         script: 'cd terraform && terraform output -raw ec2_public_ip',
                         returnStdout: true
                     ).trim()
 
-                    echo "SonarQube Server: http://${ec2_ip}:9000"
+                    echo "SonarQube Server running at: http://${ec2_ip}:9000"
 
-                    // Run SonarQube analysis against EC2 SonarQube server
-                    withSonarQubeEnv("${SONARQUBE_ENV}") {
-                        bat """
-                        echo Running SonarQube analysis on http://${ec2_ip}:9000 ...
-                        mvn sonar:sonar ^
-                          -Dsonar.projectKey=%PROJECT_KEY% ^
-                          -Dsonar.host.url=http://${ec2_ip}:9000 ^
-                          -Dsonar.login=admin ^
-                          -Dsonar.password=admin
-                        """
+                    // ✅ Generate temporary token for Jenkins via SonarQube API
+                    def tokenResponse = bat(
+                        script: """
+                        curl -u ${SONAR_USER}:${SONAR_PASS} -X POST "http://${ec2_ip}:9000/api/user_tokens/generate?name=jenkins-token-%BUILD_ID%" > token.json
+                        """,
+                        returnStdout: true
+                    )
+
+                    def tokenJson = readJSON file: 'token.json'
+                    def SONAR_TOKEN = tokenJson.token
+                    echo "✅ Generated temporary SonarQube token."
+
+                    // Run SonarQube scan with the dynamic token
+                    bat """
+                    mvn sonar:sonar ^
+                      -Dsonar.projectKey=${PROJECT_KEY} ^
+                      -Dsonar.host.url=http://${ec2_ip}:9000 ^
+                      -Dsonar.login=${SONAR_TOKEN}
+                    """
+
+                    // Wait for analysis result to be processed
+                    echo "⌛ Waiting for SonarQube analysis report..."
+                    sleep(time: 10, unit: 'SECONDS')
+
+                    // ✅ Fetch analysis Quality Gate result
+                    bat """
+                    curl -s -u ${SONAR_TOKEN}: "http://${ec2_ip}:9000/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" > sonar_result.json
+                    """
+
+                    def sonarResult = readJSON file: 'sonar_result.json'
+                    def status = sonarResult.projectStatus.status
+                    echo "🎯 SonarQube Quality Gate Status: ${status}"
+
+                    if (status != "OK") {
+                        error "❌ SonarQube Quality Gate failed. Please check the dashboard."
                     }
+
+                    // ✅ Revoke the temporary token
+                    bat """
+                    curl -u ${SONAR_USER}:${SONAR_PASS} -X POST "http://${ec2_ip}:9000/api/user_tokens/revoke?name=jenkins-token-%BUILD_ID%"
+                    """
+                    echo "🧹 Temporary token revoked successfully."
                 }
             }
         }
 
-        stage('Wait for SonarQube Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: false
-                }
-            }
-        }
-
-        stage('Show SonarQube URL') {
+        stage('Show SonarQube Dashboard URL') {
             steps {
                 bat '''
                 cd terraform
