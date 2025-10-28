@@ -96,24 +96,33 @@ pipeline {
 
 
         stage('Check Quality Gate Result') {
-            steps {
-                script {
-                    def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
-                    echo "📊 Fetching Quality Gate result..."
-                    bat """
-                    curl -s -u ${SONAR_TOKEN}: "http://${ec2_ip}:9000/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" > sonar_result.json
-                    """
-                    def sonarResult = readJSON file: 'sonar_result.json'
-                    def status = sonarResult.projectStatus.status
-                    echo "🎯 SonarQube Quality Gate Status: ${status}"
-                    if (status != "OK") {
-                        error("❌ Quality Gate failed! Check SonarQube dashboard for details.")
-                    } else {
-                        echo "✅ Code passed the SonarQube Quality Gate!"
-                    }
-                }
+    steps {
+        script {
+            // ✅ Read the IP saved earlier
+            def ec2_ip = readFile('terraform/ec2_ip.txt').trim()
+            echo "📊 Fetching Quality Gate result from ${ec2_ip}:9000 ..."
+
+            // ✅ Fetch quality gate status safely
+            bat """
+            curl -s -u ${SONAR_TOKEN}: ^
+                 "http://${ec2_ip}:9000/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" ^
+                 -o sonar_result.json
+            """
+
+            // ✅ Parse result JSON
+            def sonarResult = readJSON file: 'sonar_result.json'
+            def status = sonarResult.projectStatus.status
+            echo "🎯 SonarQube Quality Gate Status: ${status}"
+
+            if (status != "OK") {
+                error("❌ Quality Gate failed! Check SonarQube dashboard for details.")
+            } else {
+                echo "✅ Code passed the SonarQube Quality Gate!"
             }
         }
+    }
+}
+
 
         stage('Revoke Token & Show Dashboard') {
             steps {
@@ -162,6 +171,7 @@ pipeline {
         }
     }
 }
+
 
 
 
