@@ -77,19 +77,23 @@ pipeline {
 
 
 
-        stage('Build & Analyze Code') {
-            steps {
-                script {
-                    def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
-                    bat """
-                    mvn clean verify sonar:sonar ^
-                      -Dsonar.projectKey=${PROJECT_KEY} ^
-                      -Dsonar.host.url=http://${ec2_ip}:9000 ^
-                      -Dsonar.login=${SONAR_TOKEN}
-                    """
-                }
-            }
+      stage('Build & Analyze Code') {
+    steps {
+        script {
+            // ✅ Use the saved IP file instead of calling terraform inline
+            def ec2_ip = readFile('terraform/ec2_ip.txt').trim()
+            echo "Running SonarQube analysis against ${ec2_ip}:9000"
+
+            bat """
+            mvn clean verify sonar:sonar ^
+              -Dsonar.projectKey=${PROJECT_KEY} ^
+              -Dsonar.host.url=http://${ec2_ip}:9000 ^
+              -Dsonar.login=${SONAR_TOKEN}
+            """
         }
+    }
+}
+
 
         stage('Check Quality Gate Result') {
             steps {
@@ -158,5 +162,6 @@ pipeline {
         }
     }
 }
+
 
 
