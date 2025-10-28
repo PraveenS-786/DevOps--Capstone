@@ -56,16 +56,17 @@ provisioner "remote-exec" {
   inline = [
     "sudo apt-get clean",
     "sudo apt-get update -y",
-    "sudo apt-get install -y software-properties-common",
+    "sudo apt-get install -y software-properties-common wget unzip curl",
     "sudo add-apt-repository universe -y",
     "sudo apt-get update -y",
-    "sudo apt-get install -y openjdk-17-jdk wget unzip curl",
+    "sudo apt-get install -y openjdk-17-jdk",
     "wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.6.0.92116.zip",
     "unzip sonarqube-*.zip",
     "sudo mv sonarqube-* /opt/sonarqube",
     "sudo useradd -r -s /bin/false sonar || true",
     "sudo chown -R sonar:sonar /opt/sonarqube",
-    "sudo bash -c 'cat <<EOF > /etc/systemd/system/sonarqube.service
+    <<-EOF
+      sudo bash -c 'cat <<SERVICE > /etc/systemd/system/sonarqube.service
 [Unit]
 Description=SonarQube service
 After=network.target
@@ -81,12 +82,15 @@ LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target
-EOF'",
+SERVICE'
+    EOF
+    ,
     "sudo systemctl daemon-reload",
     "sudo systemctl enable sonarqube",
     "sudo systemctl start sonarqube"
   ]
 }
+
 
 
 }
