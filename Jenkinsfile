@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         AWS_REGION     = 'ap-south-1'
-        SONARQUBE_ENV  = 'MySonarQube'   // Jenkins SonarQube server name
+        SONARQUBE_ENV  = 'MySonarQube'
         PROJECT_KEY    = 'devops-capstone'
         SONAR_USER     = 'admin'
         SONAR_PASS     = 'admin'
@@ -29,7 +29,7 @@ pipeline {
                     $class: 'AmazonWebServicesCredentialsBinding', 
                     credentialsId: 'praveen-iam' 
                 ]]) {
-                    sh '''
+                    bat '''
                     cd terraform
                     terraform init -input=false
                     terraform apply -auto-approve -input=false
@@ -41,7 +41,7 @@ pipeline {
         stage('Wait for SonarQube Startup') {
             steps {
                 script {
-                    def ec2_ip = sh(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
+                    def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
                     echo "🌐 SonarQube server starting at: http://${ec2_ip}:9000"
                     echo "⌛ Waiting 2 minutes for SonarQube to start..."
                     sleep(time: 120, unit: 'SECONDS')
@@ -52,8 +52,8 @@ pipeline {
         stage('Generate SonarQube Token') {
             steps {
                 script {
-                    def ec2_ip = sh(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
-                    sh """
+                    def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
+                    bat """
                     curl -u ${SONAR_USER}:${SONAR_PASS} -X POST "http://${ec2_ip}:9000/api/user_tokens/generate?name=jenkins-token-${BUILD_ID}" > token.json
                     """
                     def tokenJson = readJSON file: 'token.json'
@@ -66,12 +66,12 @@ pipeline {
         stage('Build & Analyze Code') {
             steps {
                 script {
-                    def ec2_ip = sh(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
-                    sh """
-                    mvn clean verify sonar:sonar \
-                        -Dsonar.projectKey=${PROJECT_KEY} \
-                        -Dsonar.host.url=http://${ec2_ip}:9000 \
-                        -Dsonar.login=${SONAR_TOKEN}
+                    def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
+                    bat """
+                    mvn clean verify sonar:sonar ^
+                      -Dsonar.projectKey=${PROJECT_KEY} ^
+                      -Dsonar.host.url=http://${ec2_ip}:9000 ^
+                      -Dsonar.login=${SONAR_TOKEN}
                     """
                 }
             }
@@ -80,9 +80,9 @@ pipeline {
         stage('Check Quality Gate Result') {
             steps {
                 script {
-                    def ec2_ip = sh(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
+                    def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
                     echo "📊 Fetching Quality Gate result..."
-                    sh """
+                    bat """
                     curl -s -u ${SONAR_TOKEN}: "http://${ec2_ip}:9000/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" > sonar_result.json
                     """
                     def sonarResult = readJSON file: 'sonar_result.json'
@@ -100,8 +100,8 @@ pipeline {
         stage('Revoke Token & Show Dashboard') {
             steps {
                 script {
-                    def ec2_ip = sh(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
-                    sh """
+                    def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
+                    bat """
                     curl -u ${SONAR_USER}:${SONAR_PASS} -X POST "http://${ec2_ip}:9000/api/user_tokens/revoke?name=jenkins-token-${BUILD_ID}"
                     """
                     echo """
@@ -123,7 +123,7 @@ pipeline {
                     $class: 'AmazonWebServicesCredentialsBinding', 
                     credentialsId: 'praveen-iam' 
                 ]]) {
-                    sh '''
+                    bat '''
                     cd terraform
                     terraform destroy -auto-approve
                     '''
