@@ -79,13 +79,16 @@ resource "aws_instance" "sonarqube_ec2" {
   ##########################################
 provisioner "remote-exec" {
   inline = [
-    "set -ex",
+    "set -euxo pipefail",
+    "echo 'Updating apt repositories...'",
     "sudo apt-get update -y",
-    "sudo apt-get install -y unzip wget curl software-properties-common gnupg",
+    "sudo apt-get install -y unzip wget curl gnupg software-properties-common",
     "sudo add-apt-repository universe -y || true",
     "sudo apt-get update -y",
+    "echo 'Installing OpenJDK 17...'",
     "sudo apt-get install -y openjdk-17-jdk",
-    "wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.6.0.92116.zip",
+    "echo 'Downloading SonarQube...'",
+    "wget -q https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.6.0.92116.zip",
     "unzip -q sonarqube-10.6.0.92116.zip",
     "sudo mkdir -p /opt/sonarqube",
     "sudo mv sonarqube-10.6.0.92116/* /opt/sonarqube/",
@@ -94,7 +97,7 @@ provisioner "remote-exec" {
     "sudo bash -c \"cat > /etc/systemd/system/sonarqube.service <<'EOF'\n[Unit]\nDescription=SonarQube service\nAfter=network.target\n\n[Service]\nType=forking\nExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start\nExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop\nUser=sonar\nGroup=sonar\nRestart=on-failure\nLimitNOFILE=65536\n\n[Install]\nWantedBy=multi-user.target\nEOF\"",
     "sudo systemctl daemon-reload",
     "sudo systemctl enable sonarqube",
-    "sudo systemctl start sonarqube || (sudo journalctl -xeu sonarqube.service && false)"
+    "sudo systemctl start sonarqube || (sudo journalctl -xeu sonarqube.service; false)"
   ]
 
   connection {
@@ -104,6 +107,7 @@ provisioner "remote-exec" {
     host        = self.public_ip
   }
 }
+
 
 
 
