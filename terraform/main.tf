@@ -79,13 +79,26 @@ resource "aws_instance" "sonarqube_ec2" {
   ##########################################
 provisioner "remote-exec" {
   inline = [
-    "sudo bash -c 'set -eux; sudo apt-get update -y && sudo apt-get install -y unzip wget curl gnupg software-properties-common'",
-    "sudo bash -c 'add-apt-repository universe -y || true && apt-get update -y && apt-get install -y openjdk-17-jdk'",
-    "sudo bash -c \"wget -q https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.6.0.92116.zip && unzip -q sonarqube-10.6.0.92116.zip\"",
-    "sudo bash -c 'mkdir -p /opt/sonarqube && mv sonarqube-10.6.0.92116/* /opt/sonarqube/'",
-    "sudo bash -c 'useradd -r -s /bin/false sonar || true && chown -R sonar:sonar /opt/sonarqube'",
+    "sudo bash -c 'set -eux'",
+    "echo ===== Updating system =====",
+    "sudo apt-get clean && sudo apt-get update -y",
+    "sudo apt-get install -y unzip wget curl gnupg software-properties-common",
+    "sudo add-apt-repository universe -y || true",
+    "sudo apt-get update -y",
+    "echo ===== Installing Java =====",
+    "sudo apt-get install -y openjdk-17-jdk",
+    "echo ===== Downloading SonarQube =====",
+    "wget -q https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.6.0.92116.zip -O sonarqube.zip",
+    "unzip -q sonarqube.zip",
+    "sudo mkdir -p /opt/sonarqube",
+    "sudo mv sonarqube-10.6.0.92116/* /opt/sonarqube/",
+    "sudo useradd -r -s /bin/false sonar || true",
+    "sudo chown -R sonar:sonar /opt/sonarqube",
     "sudo bash -c \"cat > /etc/systemd/system/sonarqube.service <<'EOF'\n[Unit]\nDescription=SonarQube service\nAfter=network.target\n\n[Service]\nType=forking\nExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start\nExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop\nUser=sonar\nGroup=sonar\nRestart=on-failure\nLimitNOFILE=65536\n\n[Install]\nWantedBy=multi-user.target\nEOF\"",
-    "sudo bash -c 'systemctl daemon-reload && systemctl enable sonarqube && systemctl start sonarqube || (journalctl -xeu sonarqube.service && false)'"
+    "sudo systemctl daemon-reload",
+    "sudo systemctl enable sonarqube",
+    # Print service logs if start fails
+    "sudo systemctl start sonarqube || (sudo journalctl -xeu sonarqube.service | tail -n 50 && false)"
   ]
 
   connection {
@@ -95,6 +108,7 @@ provisioner "remote-exec" {
     host        = self.public_ip
   }
 }
+
 
 
 
