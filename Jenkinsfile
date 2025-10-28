@@ -49,19 +49,28 @@ pipeline {
             }
         }
 
-        stage('Generate SonarQube Token') {
-            steps {
-                script {
-                    def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
-                    bat """
-                    curl -u ${SONAR_USER}:${SONAR_PASS} -X POST "http://${ec2_ip}:9000/api/user_tokens/generate?name=jenkins-token-${BUILD_ID}" > token.json
-                    """
-                    def tokenJson = readJSON file: 'token.json'
-                    env.SONAR_TOKEN = tokenJson.token
-                    echo "🔑 Temporary SonarQube token created successfully."
-                }
-            }
+       stage('Generate SonarQube Token') {
+    steps {
+        script {
+            // ✅ Capture EC2 IP safely
+            def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
+            echo "SonarQube server IP: ${ec2_ip}"
+
+            // ✅ Use variable in a clean one-line command
+            bat """
+            curl -u ${SONAR_USER}:${SONAR_PASS} ^
+                 -X POST "http://${ec2_ip}:9000/api/user_tokens/generate?name=jenkins-token-${BUILD_ID}" ^
+                 -o token.json
+            """
+
+            // ✅ Parse JSON token
+            def tokenJson = readJSON file: 'token.json'
+            env.SONAR_TOKEN = tokenJson.token
+            echo "🔑 Temporary SonarQube token created successfully."
         }
+    }
+}
+
 
         stage('Build & Analyze Code') {
             steps {
@@ -144,3 +153,4 @@ pipeline {
         }
     }
 }
+
