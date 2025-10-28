@@ -134,20 +134,27 @@ pipeline {
 
 
         stage('Revoke Token & Show Dashboard') {
-            steps {
-                script {
-                    def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
-                    bat """
-                    curl -u ${SONAR_USER}:${SONAR_PASS} -X POST "http://${ec2_ip}:9000/api/user_tokens/revoke?name=jenkins-token-${BUILD_ID}"
-                    """
-                    echo """
-                    =====================================================
-                    ✅ SonarQube Dashboard: http://${ec2_ip}:9000/projects
-                    =====================================================
-                    """
-                }
-            }
+    steps {
+        script {
+            // ✅ Read the EC2 IP from the saved file instead of calling terraform inline
+            def ec2_ip = readFile('terraform/ec2_ip.txt').trim()
+
+            // ✅ Revoke the token safely
+            bat """
+            curl -u ${SONAR_USER}:${SONAR_PASS} ^
+                 -X POST "http://${ec2_ip}:9000/api/user_tokens/revoke?name=jenkins-token-${BUILD_ID}"
+            """
+
+            // ✅ Print the dashboard URL
+            echo """
+            =====================================================
+            ✅ SonarQube Dashboard: http://${ec2_ip}:9000/projects
+            =====================================================
+            """
         }
+    }
+}
+
 
         stage('Destroy Infrastructure') {
             when {
@@ -180,6 +187,7 @@ pipeline {
         }
     }
 }
+
 
 
 
