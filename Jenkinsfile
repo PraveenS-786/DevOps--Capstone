@@ -2,30 +2,40 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION     = 'ap-south-1'
-        SONARQUBE_ENV  = 'MySonarQube'   // Jenkins SonarQube server config name
-        PROJECT_KEY    = 'devops-capstone'
-        SONAR_USER     = 'admin'         // SonarQube admin user
-        SONAR_PASS     = 'admin'         // default admin password (change after first login)
+        AWS_REGION    = 'ap-south-1'
+        SONARQUBE_ENV = 'MySonarQube'
+        PROJECT_KEY   = 'devops-capstone'
+        SONAR_USER    = 'admin'
+        SONAR_PASS    = 'admin'
+    }
+
+    parameters {
+        booleanParam(
+            name: 'DESTROY_INSTANCE',
+            defaultValue: false,
+            description: 'Destroy EC2 after analysis (optional)'
+        )
     }
 
     stages {
-        stage('Checkout Terraform Code') {
+        stage('Checkout Code') {
             steps {
+                echo "📦 Checking out repository..."
                 git branch: 'main', url: 'https://github.com/PraveenS-786/DevOps--Capstone.git'
             }
         }
 
         stage('Terraform Init & Apply') {
             steps {
-                withCredentials([[ 
-                    $class: 'AmazonWebServicesCredentialsBinding', 
-                    credentialsId: 'praveen-iam' 
+                echo "🚀 Initializing Terraform..."
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'praveen-iam'
                 ]]) {
-                    bat '''
+                    sh '''
                     cd terraform
-                    terraform init
-                    terraform apply -auto-approve
+                    terraform init -input=false
+                    terraform apply -auto-approve -input=false
                     '''
                 }
             }
@@ -33,50 +43,46 @@ pipeline {
 
         stage('Build & Test Code') {
             steps {
-                bat '''
-                echo Running code build and tests...
-                mvn clean verify
+                echo "🧱 Building and testing project..."
+                sh '''
+                mvn clean verify -DskipTests=false
                 '''
             }
         }
 
-        stage('SonarQube Analysis (on EC2)') {
+        stage('SonarQube Code Analysis (on EC2)') {
             steps {
                 script {
-                    // Get EC2 public IP from Terraform output
-                    def ec2_ip = bat(
+                    echo "🔍 Fetching EC2 public IP..."
+                    def ec2_ip = sh(
                         script: 'cd terraform && terraform output -raw ec2_public_ip',
                         returnStdout: true
                     ).trim()
 
-                    echo "SonarQube Server running at: http://${ec2_ip}:9000"
+                    echo "🌐 SonarQube Server running at: http://${ec2_ip}:9000"
 
-                    // ✅ Generate temporary token for Jenkins via SonarQube API
-                    def tokenResponse = bat(
-                        script: """
-                        curl -u ${SONAR_USER}:${SONAR_PASS} -X POST "http://${ec2_ip}:9000/api/user_tokens/generate?name=jenkins-token-%BUILD_ID%" > token.json
-                        """,
-                        returnStdout: true
-                    )
+                    echo "🔑 Generating temporary SonarQube token..."
+                    sh """
+                    curl -u ${SONAR_USER}:${SONAR_PASS} -X POST "http://${ec2_ip}:9000/api/user_tokens/generate?name=jenkins-token-${BUILD_ID}" > token.json
+                    """
 
                     def tokenJson = readJSON file: 'token.json'
                     def SONAR_TOKEN = tokenJson.token
-                    echo "✅ Generated temporary SonarQube token."
+                    echo "✅ Token generated successfully."
 
-                    // Run SonarQube scan with the dynamic token
-                    bat """
-                    mvn sonar:sonar ^
-                      -Dsonar.projectKey=${PROJECT_KEY} ^
-                      -Dsonar.host.url=http://${ec2_ip}:9000 ^
+                    echo "🚀 Running SonarQube analysis..."
+                    sh """
+                    mvn sonar:sonar \
+                      -Dsonar.projectKey=${PROJECT_KEY} \
+                      -Dsonar.host.url=http://${ec2_ip}:9000 \
                       -Dsonar.login=${SONAR_TOKEN}
                     """
 
-                    // Wait for analysis result to be processed
-                    echo "⌛ Waiting for SonarQube analysis report..."
-                    sleep(time: 10, unit: 'SECONDS')
+                    echo "⌛ Waiting for SonarQube Quality Gate result..."
+                    sleep(time: 15, unit: 'SECONDS')
 
-                    // ✅ Fetch analysis Quality Gate result
-                    bat """
+                    echo "📊 Fetching quality gate status..."
+                    sh """
                     curl -s -u ${SONAR_TOKEN}: "http://${ec2_ip}:9000/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" > sonar_result.json
                     """
 
@@ -85,27 +91,31 @@ pipeline {
                     echo "🎯 SonarQube Quality Gate Status: ${status}"
 
                     if (status != "OK") {
-                        error "❌ SonarQube Quality Gate failed. Please check the dashboard."
+                        error "❌ Quality Gate failed. Check SonarQube dashboard for issues."
                     }
 
-                    // ✅ Revoke the temporary token
-                    bat """
-                    curl -u ${SONAR_USER}:${SONAR_PASS} -X POST "http://${ec2_ip}:9000/api/user_tokens/revoke?name=jenkins-token-%BUILD_ID%"
+                    echo "🧹 Revoking temporary token..."
+                    sh """
+                    curl -u ${SONAR_USER}:${SONAR_PASS} -X POST "http://${ec2_ip}:9000/api/user_tokens/revoke?name=jenkins-token-${BUILD_ID}"
                     """
-                    echo "🧹 Temporary token revoked successfully."
+                    echo "✅ Temporary token revoked successfully."
                 }
             }
         }
 
         stage('Show SonarQube Dashboard URL') {
             steps {
-                bat '''
-                cd terraform
-                for /f "usebackq delims=" %%i in (`terraform output -raw ec2_public_ip`) do set EC2_IP=%%i
-                echo =============================================
-                echo ✅ SonarQube Dashboard: http://%EC2_IP%:9000
-                echo =============================================
-                '''
+                script {
+                    def ec2_ip = sh(
+                        script: 'cd terraform && terraform output -raw ec2_public_ip',
+                        returnStdout: true
+                    ).trim()
+                    echo """
+                    ===========================================
+                    ✅ SonarQube Dashboard: http://${ec2_ip}:9000
+                    ===========================================
+                    """
+                }
             }
         }
 
@@ -114,11 +124,12 @@ pipeline {
                 expression { return params.DESTROY_INSTANCE == true }
             }
             steps {
-                withCredentials([[ 
-                    $class: 'AmazonWebServicesCredentialsBinding', 
-                    credentialsId: 'praveen-iam' 
+                echo "💣 Destroying Terraform infrastructure..."
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'praveen-iam'
                 ]]) {
-                    bat '''
+                    sh '''
                     cd terraform
                     terraform destroy -auto-approve
                     '''
@@ -129,7 +140,13 @@ pipeline {
 
     post {
         always {
-            echo '✅ Pipeline completed successfully.'
+            echo '✅ Pipeline execution finished.'
+        }
+        failure {
+            echo '❌ Pipeline failed. Check logs for details.'
+        }
+        success {
+            echo '🎉 Pipeline completed successfully!'
         }
     }
 }
