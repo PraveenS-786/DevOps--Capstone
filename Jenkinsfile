@@ -95,24 +95,32 @@ pipeline {
 }
 
 
-        stage('Check Quality Gate Result') {
+       stage('Check Quality Gate Result') {
     steps {
         script {
-            // ✅ Read the IP saved earlier
             def ec2_ip = readFile('terraform/ec2_ip.txt').trim()
-            echo "📊 Fetching Quality Gate result from ${ec2_ip}:9000 ..."
+            def status = "NONE"
+            def attempts = 0
 
-            // ✅ Fetch quality gate status safely
-            bat """
-            curl -s -u ${SONAR_TOKEN}: ^
-                 "http://${ec2_ip}:9000/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" ^
-                 -o sonar_result.json
-            """
+            echo "📊 Waiting for SonarQube to process the analysis report..."
 
-            // ✅ Parse result JSON
-            def sonarResult = readJSON file: 'sonar_result.json'
-            def status = sonarResult.projectStatus.status
-            echo "🎯 SonarQube Quality Gate Status: ${status}"
+            // ✅ Poll SonarQube every 10s until we get OK or ERROR (max 2 min)
+            while (status == "NONE" && attempts < 12) {
+                bat """
+                curl -s -u ${SONAR_TOKEN}: ^
+                     "http://${ec2_ip}:9000/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" ^
+                     -o sonar_result.json
+                """
+                def sonarResult = readJSON file: 'sonar_result.json'
+                status = sonarResult.projectStatus.status
+                echo "🔄 Attempt ${attempts + 1}: Quality Gate status = ${status}"
+                if (status == "NONE") {
+                    sleep(time: 10, unit: 'SECONDS')
+                }
+                attempts++
+            }
+
+            echo "🎯 Final SonarQube Quality Gate Status: ${status}"
 
             if (status != "OK") {
                 error("❌ Quality Gate failed! Check SonarQube dashboard for details.")
@@ -122,6 +130,7 @@ pipeline {
         }
     }
 }
+
 
 
         stage('Revoke Token & Show Dashboard') {
@@ -171,6 +180,7 @@ pipeline {
         }
     }
 }
+
 
 
 
