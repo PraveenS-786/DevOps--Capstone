@@ -56,7 +56,7 @@ resource "aws_security_group" "sonarqube_sg" {
 ##########################################
 resource "aws_instance" "sonarqube_ec2" {
   ami                    = "ami-0f5ee92e2d63afc18" # Ubuntu 22.04 (ap-south-1)
-  instance_type          = "t3.medium"
+  instance_type          = "m7i-flex.large"
   key_name               = aws_key_pair.jenkins_generated.key_name
   vpc_security_group_ids = [aws_security_group.sonarqube_sg.id]
 
