@@ -153,26 +153,7 @@ stage('Build Docker Image') {
 }
 
 
-stage('Push Docker Image to DockerHub') {
-    steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-            script {
-                echo "📦 Pushing Docker image to Docker Hub..."
-                bat """
-                @echo on
-                docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-                if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
 
-                docker push ${DOCKERHUB_USERNAME}/${APP_NAME}:${BUILD_NUMBER}
-                if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
-
-                docker logout
-                if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
-                """
-            }
-        }
-    }
-}
 
 stage('Deploy App on EC2') {
     steps {
@@ -253,6 +234,7 @@ stage('Deploy App on EC2') {
         }
     }
 }
+
 
 
 
