@@ -180,25 +180,22 @@ stage('Deploy App on EC2') {
             def ec2_ip = readFile('terraform/ec2_ip.txt').trim()
             echo "🚀 Deploying container on EC2 (${ec2_ip})..."
 
-            // Connect via SSH using the Terraform-generated private key
             bat """
             pscp -i terraform/jenkins-sonarqube-key.pem terraform/jenkins-sonarqube-key.pem ubuntu@${ec2_ip}:/home/ubuntu/
             """
 
-            // ✅ Use SSH to run Docker commands remotely
             bat """
             plink -i terraform/jenkins-sonarqube-key.pem ubuntu@${ec2_ip} ^
               "sudo apt-get update -y && sudo apt-get install -y docker.io && \
                sudo systemctl start docker && sudo systemctl enable docker && \
-               sudo docker stop ${APP_NAME} || true && sudo docker rm ${APP_NAME} || true && \
-               sudo docker pull ${DOCKERHUB_USERNAME}/${APP_NAME}:${BUILD_NUMBER} && \
-               sudo docker run -d -p 8080:8080 --name ${APP_NAME} ${DOCKERHUB_USERNAME}/${APP_NAME}:${BUILD_NUMBER}"
+               sudo docker stop devops-capstone-app || true && sudo docker rm devops-capstone-app || true && \
+               sudo docker pull praveen197/devops-capstone-app:51 && \
+               sudo docker run -d -p 8080:8080 --name devops-capstone-app praveen197/devops-capstone-app:51"
             """
-
-            echo "✅ Application deployed and running on http://${ec2_ip}:8080"
         }
     }
 }
+
 
 
 
@@ -256,6 +253,7 @@ stage('Deploy App on EC2') {
         }
     }
 }
+
 
 
 
