@@ -144,7 +144,7 @@ pipeline {
 stage('Build Docker Image') {
     steps {
         script {
-            echo "🐳 Building Docker image..."
+            echo " Building Docker image..."
             bat """
             docker build -t ${DOCKERHUB_USERNAME}/${APP_NAME}:${BUILD_NUMBER} .
             """
@@ -159,7 +159,7 @@ stage('Deploy App on EC2') {
     steps {
         script {
             def ec2_ip = readFile('terraform/ec2_ip.txt').trim()
-            echo "🚀 Deploying container on EC2 (${ec2_ip})..."
+            echo " Deploying container on EC2 (${ec2_ip})..."
 
             bat """
             pscp -i terraform/jenkins-sonarqube-key.pem terraform/jenkins-sonarqube-key.pem ubuntu@${ec2_ip}:/home/ubuntu/
@@ -183,19 +183,19 @@ stage('Deploy App on EC2') {
         stage('Revoke Token & Show Dashboard') {
     steps {
         script {
-            // ✅ Read the EC2 IP from the saved file instead of calling terraform inline
+            //  Read the EC2 IP from the saved file instead of calling terraform inline
             def ec2_ip = readFile('terraform/ec2_ip.txt').trim()
 
-            // ✅ Revoke the token safely
+            //  Revoke the token safely
             bat """
             curl -u ${SONAR_USER}:${SONAR_PASS} ^
                  -X POST "http://${ec2_ip}:9000/api/user_tokens/revoke?name=jenkins-token-${BUILD_ID}"
             """
 
-            // ✅ Print the dashboard URL
+            //  Print the dashboard URL
             echo """
             =====================================================
-            ✅ SonarQube Dashboard: http://${ec2_ip}:9000/projects
+            SonarQube Dashboard: http://${ec2_ip}:9000/projects
             =====================================================
             """
         }
@@ -208,7 +208,7 @@ stage('Deploy App on EC2') {
                 expression { return params.DESTROY_INSTANCE == true }
             }
             steps {
-                echo "💣 Destroying Terraform infrastructure..."
+                echo "Destroying Terraform infrastructure..."
                 withCredentials([[ 
                     $class: 'AmazonWebServicesCredentialsBinding', 
                     credentialsId: 'praveen-iam' 
@@ -224,16 +224,17 @@ stage('Deploy App on EC2') {
 
     post {
         always {
-            echo '🏁 Pipeline finished.'
+            echo ' Pipeline finished.'
         }
         success {
-            echo '🎉 Code analysis completed successfully.'
+            echo ' Code analysis completed successfully.'
         }
         failure {
-            echo '❌ Pipeline failed. Check Jenkins logs and SonarQube dashboard.'
+            echo 'Pipeline failed. Check Jenkins logs and SonarQube dashboard.'
         }
     }
 }
+
 
 
 
