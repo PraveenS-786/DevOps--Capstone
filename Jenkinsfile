@@ -7,7 +7,7 @@ pipeline {
         PROJECT_KEY    = 'devops-capstone'
         SONAR_USER     = 'admin'
         SONAR_PASS     = 'admin'
-        DOCKERHUB_USERNAME = 'praveen197'   // 🔁 Replace
+        DOCKERHUB_USERNAME = 'praveen197'   
         APP_NAME       = 'devops-capstone-app'
     }
 
@@ -20,14 +20,14 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                echo "📦 Checking out repository..."
+                echo " Checking out repository..."
                 git branch: 'main', url: 'https://github.com/PraveenS-786/DevOps--Capstone.git'
             }
         }
 
         stage('Provision SonarQube EC2 (Terraform)') {
             steps {
-                echo "🚀 Running Terraform to create EC2..."
+                echo " Running Terraform to create EC2..."
                 withCredentials([[ 
                     $class: 'AmazonWebServicesCredentialsBinding', 
                     credentialsId: 'praveen-iam' 
@@ -45,8 +45,8 @@ pipeline {
             steps {
                 script {
                     def ec2_ip = bat(script: 'cd terraform && terraform output -raw ec2_public_ip', returnStdout: true).trim()
-                    echo "🌐 SonarQube server starting at: http://${ec2_ip}:9000"
-                    echo "⌛ Waiting 2 minutes for SonarQube to start..."
+                    echo " SonarQube server starting at: http://${ec2_ip}:9000"
+                    echo " Waiting 2 minutes for SonarQube to start..."
                     sleep(time: 120, unit: 'SECONDS')
                 }
             }
@@ -55,25 +55,25 @@ pipeline {
      stage('Generate SonarQube Token') {
     steps {
         script {
-            // ✅ Capture EC2 IP correctly
+            //  Capture EC2 IP correctly
             bat '''
             cd terraform
             terraform output -raw ec2_public_ip > ec2_ip.txt
             '''
             def ec2_ip = readFile('terraform/ec2_ip.txt').trim()
-            echo "🌐 SonarQube server IP: ${ec2_ip}"
+            echo " SonarQube server IP: ${ec2_ip}"
 
-            // ✅ Generate token safely using captured IP
+            //  Generate token safely using captured IP
             bat """
             curl -u ${SONAR_USER}:${SONAR_PASS} ^
                  -X POST "http://${ec2_ip}:9000/api/user_tokens/generate?name=jenkins-token-${BUILD_ID}" ^
                  -o token.json
             """
 
-            // ✅ Parse JSON and export token
+            //  Parse JSON and export token
             def tokenJson = readJSON file: 'token.json'
             env.SONAR_TOKEN = tokenJson.token
-            echo "🔑 Temporary SonarQube token created successfully."
+            echo " Temporary SonarQube token created successfully."
         }
     }
 }
@@ -83,7 +83,7 @@ pipeline {
       stage('Build & Analyze Code') {
     steps {
         script {
-            // ✅ Use the saved IP file instead of calling terraform inline
+            //   saved IP file instead of calling terraform inline
             def ec2_ip = readFile('terraform/ec2_ip.txt').trim()
             echo "Running SonarQube analysis against ${ec2_ip}:9000"
 
@@ -107,7 +107,7 @@ pipeline {
 
             echo "📊 Waiting for SonarQube to process the analysis report..."
 
-            // ✅ Poll SonarQube every 10s until we get OK or ERROR (max 2 min)
+            //  Poll SonarQube every 10s until we get OK or ERROR (max 2 min)
             while (status == "NONE" && attempts < 12) {
                 bat """
                 curl -s -u ${SONAR_TOKEN}: ^
@@ -116,7 +116,7 @@ pipeline {
                 """
                 def sonarResult = readJSON file: 'sonar_result.json'
                 status = sonarResult.projectStatus.status
-                echo "🔄 Attempt ${attempts + 1}: Quality Gate status = ${status}"
+                echo "Attempt ${attempts + 1}: Quality Gate status = ${status}"
                 if (status == "NONE") {
                     sleep(time: 10, unit: 'SECONDS')
                 }
@@ -126,9 +126,9 @@ pipeline {
             echo "🎯 Final SonarQube Quality Gate Status: ${status}"
 
             if (status != "OK") {
-                error("❌ Quality Gate failed! Check SonarQube dashboard for details.")
+                error(" Quality Gate failed! Check SonarQube dashboard for details.")
             } else {
-                echo "✅ Code passed the SonarQube Quality Gate!"
+                echo "Code passed the SonarQube Quality Gate!"
             }
         }
     }
@@ -234,6 +234,7 @@ stage('Deploy App on EC2') {
         }
     }
 }
+
 
 
 
